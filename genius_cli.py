@@ -5,14 +5,23 @@ import requests
 from bs4 import BeautifulSoup
 import bs4
 
+# API data
 base_url = "https://api.genius.com"
 headers = {'Authorization': 'Bearer ' + config.access_token}
 
 web_url = "https://genius.com"
 
+#Search Parameters
 search_url = base_url + "/search"
-song_title = "Humble"
-artist_name = "Kendrick Lamar"
+song_title = ""
+artist_name = ""
+
+song_title = input("Song Title: ")
+artist_name = input("Artist Name: ")
+if not any([song_title, artist_name]):
+    print("Must enter song and artist")
+    exit()
+
 params = {'q': song_title}
 
 def get_lyrics_from_song_api_path(song_api_path):
@@ -33,7 +42,8 @@ response_json = response.json()
 # Parse search results for matching artist
 song_info = None
 for hit in response_json["response"]["hits"]:
-    if hit["result"]["primary_artist"]["name"] == artist_name:
+    artist = hit["result"]["primary_artist"]["name"]
+    if artist.lower() == artist_name.lower():
         song_info = hit
         break
 
@@ -42,3 +52,5 @@ if song_info:
     api_path = song_info["result"]["api_path"]
     lyrics = get_lyrics_from_song_api_path(api_path)
     print(lyrics)
+else:
+    print("Song not found.")
