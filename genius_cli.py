@@ -25,6 +25,9 @@ if not any([song_title, artist_name]):
 params = {'q': song_title}
 
 def get_lyrics_from_song_api_path(song_api_path):
+    #Accesses page of song_api_path and parses html for lyrics
+    #:param song_api_path: api_path of song, parsed from search results
+    #:return: lyrics of desired song
     song_url = base_url + song_api_path
     response = requests.get(song_url, headers=headers)
     r_json = response.json()
@@ -36,6 +39,7 @@ def get_lyrics_from_song_api_path(song_api_path):
     lyrics = soup.get_text()
     return lyrics
     
+# Send search request
 response = requests.get(search_url, params=params, headers=headers)
 response_json = response.json()
 
