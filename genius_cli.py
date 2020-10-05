@@ -9,17 +9,17 @@ import sys
 
 @dataclass
 class Sort:
+    # Class used to hold search display variables
     order: str
     length: int
 
 def pprint(response):
+    # Prints response in a more readable way
     pretty_json = json.loads(response.text)
     print(json.dumps(pretty_json, indent = 2))
 
 def get_lyrics_from_song_api_path(base_url, web_url, headers, song_api_path):
-    #Accesses page of song_api_path and parses html for lyrics
-    #:param song_api_path: api_path of song, parsed from search results
-    #:return: lyrics of desired song
+    # Accesses page of song_api_path and parses html for lyrics
     song_url = base_url + song_api_path
     response = requests.get(song_url, headers=headers)
     r_json = response.json()
@@ -32,6 +32,7 @@ def get_lyrics_from_song_api_path(base_url, web_url, headers, song_api_path):
     return lyrics
 
 def search_for_artist(base_url, web_url, search_url, params, headers, sort):
+    # Gets list of artists songs and prompts user to choose one do display
     response = requests.get(search_url, params=params, headers=headers)
     response_json = response.json()
     artist_path = None
@@ -39,22 +40,32 @@ def search_for_artist(base_url, web_url, search_url, params, headers, sort):
     if not artist_path:
         print("Couldn't find artist.")
         exit()
+    artist_name = response_json["response"]["hits"][0]["result"]["primary_artist"]["name"]
+
     artist_url = base_url + artist_path + "/songs?sort=" + sort.order
     response = requests.get(artist_url, headers=headers)
     response_json = response.json()
+
     # Print songs according to sort
+    print("Showing songs by " + artist_name + ":")
     songs = []
     for song in response_json["response"]["songs"]:
         songs.append(song["title"])
     for number, song in enumerate(songs, 1):
         print(number, song)
+
     # Promt user for song choice
     while True:
-        song_num = int(input('\033[1m' + "Enter song number to search: " + '\033[0m'))
+        try:
+            song_num = int(input('\033[1m' + "Enter song number to search: " + '\033[0m'))
+        except ValueError:
+            print("Input must be an integer between 1 and " + str(sort.length))
+            continue
         if 0 < song_num <= len(songs):
             break
         else:
             print("Number must be between 1 and " + str(sort.length))
+
     # Get song path from previous response
     for song in response_json["response"]["songs"]:
         if song["title"] == songs[song_num-1]:
@@ -124,4 +135,8 @@ def main(argv):
             print("Song not found.")
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    try:
+        main(sys.argv[1:])
+    except KeyboardInterrupt:
+        print("Interrupted...Exiting.")
+        sys.exit(1)
