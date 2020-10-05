@@ -26,6 +26,7 @@ def get_lyrics_from_song_api_path(base_url, web_url, headers, song_api_path):
     page_path = r_json["response"]["song"]["path"]
     page_url = web_url + page_path
     page = requests.get(page_url)
+    # Parse html
     soup = BeautifulSoup(page.text, 'html.parser')
     soup = soup.find(class_="lyrics")
     lyrics = soup.get_text()
@@ -39,7 +40,7 @@ def search_for_artist(base_url, web_url, search_url, params, headers, sort):
     artist_path = response_json["response"]["hits"][0]["result"]["primary_artist"]["api_path"]
     if not artist_path:
         print("Couldn't find artist.")
-        exit()
+        sys.exit(0)
     artist_name = response_json["response"]["hits"][0]["result"]["primary_artist"]["name"]
 
     artist_url = base_url + artist_path + "/songs?sort=" + sort.order
@@ -54,26 +55,64 @@ def search_for_artist(base_url, web_url, search_url, params, headers, sort):
     for number, song in enumerate(songs, 1):
         print(number, song)
 
-    # Promt user for song choice
-    while True:
-        try:
-            song_num = int(input('\033[1m' + "Enter song number to search: " + '\033[0m'))
-        except ValueError:
-            print("Input must be an integer between 1 and " + str(sort.length))
-            continue
-        if 0 < song_num <= len(songs):
-            break
-        else:
-            print("Number must be between 1 and " + str(sort.length))
+    song_num = choose_song_from_list(response_json, songs, sort)
 
     # Get song path from previous response
     for song in response_json["response"]["songs"]:
         if song["title"] == songs[song_num-1]:
             song_api_path = song["api_path"]
             break
+
     lyrics = get_lyrics_from_song_api_path(base_url, web_url, headers, song_api_path)
+    # TODO move this to main
     print(lyrics)
-    exit()
+    sys.exit(0)
+
+def search_for_song_title(base_url, web_url, search_url, params, headers, sort):
+    response = requests.get(search_url, params=params, headers=headers)
+    #pprint(response)
+    response_json = response.json()
+    songs = []
+    paths = []
+    display_list = []
+    for hit in response_json["response"]["hits"]:
+        songs.append(hit["result"]["title"])
+        paths.append(hit["result"]["api_path"])
+        display_list.append(hit["result"]["title"] + " - " + hit["result"]["primary_artist"]["name"])
+    for number, song in enumerate(display_list, 1):
+        print(number, song)
+
+    song_num = choose_song_from_list(response_json, songs, sort)
+
+    for hit in response_json["response"]["hits"]:
+        if hit["result"]["api_path"] == paths[song_num-1]:
+            song_api_path = hit["result"]["api_path"]
+            break
+
+    lyrics = get_lyrics_from_song_api_path(base_url, web_url, headers, song_api_path)
+    # TODO move this to main
+    print(lyrics)
+    sys.exit(0)
+
+def choose_song_from_list(response_json, song_list, sort):
+    # Promt user for song choice and return path of desired song
+    while True:
+        try:
+            song_num = int(input('\033[1m' + "Enter song number to search: " + '\033[0m'))
+        except ValueError:
+            print("Input must be an integer between 1 and " + str(sort.length))
+            continue
+        if 0 < song_num <= len(song_list):
+            return song_num
+        else:
+            print("Number must be between 1 and " + str(sort.length))
+
+    # Get song path from previous response
+    for song in response_json["response"]["songs"]:
+        if song["title"] == song_list[song_num-1]:
+            song_api_path = song["api_path"]
+            return song_api_path
+    return None
 
 def main(argv):
     # API data
@@ -103,7 +142,7 @@ def main(argv):
 
     if not any([song_title, artist_name]):
         print("Must enter song or artist")
-        exit()
+        sys.exit(0)
     if not song_title:
         # Search for songs by artist
         params = {'q': artist_name}
@@ -111,6 +150,7 @@ def main(argv):
     elif not artist_name:
         # Search for song name by all artists
         params = {'q': song_title}
+        search_for_song_title(base_url, web_url, search_url, params, headers, sort)
         
     else:
         # Search for song and artist
