@@ -1,11 +1,20 @@
 import config
 
-import sys
 import argparse
+from bs4 import BeautifulSoup
+from dataclasses import dataclass
 import json
 import requests
-from bs4 import BeautifulSoup
+import sys
 
+@dataclass
+class Sort:
+    order: str
+    length: int
+
+def pprint(response):
+    pretty_json = json.loads(response.text)
+    print(json.dumps(pretty_json, indent = 2))
 
 def get_lyrics_from_song_api_path(base_url, web_url, headers, song_api_path):
     #Accesses page of song_api_path and parses html for lyrics
@@ -22,29 +31,50 @@ def get_lyrics_from_song_api_path(base_url, web_url, headers, song_api_path):
     lyrics = soup.get_text()
     return lyrics
 
-def search_for_artist(base_url, search_url, params, headers, sort):
+def search_for_artist(base_url, web_url, search_url, params, headers, sort):
     response = requests.get(search_url, params=params, headers=headers)
     response_json = response.json()
     artist_path = None
     artist_path = response_json["response"]["hits"][0]["result"]["primary_artist"]["api_path"]
-    if artist_path:
-        print(artist_path)
-    artist_url = base_url + artist_path + "/songs?sort=" + sort
+    if not artist_path:
+        print("Couldn't find artist.")
+        exit()
+    artist_url = base_url + artist_path + "/songs?sort=" + sort.order
     response = requests.get(artist_url, headers=headers)
     response_json = response.json()
-    print(response_json)
-    
+    # Print songs according to sort
+    songs = []
+    for song in response_json["response"]["songs"]:
+        songs.append(song["title"])
+    for number, song in enumerate(songs, 1):
+        print(number, song)
+    # Promt user for song choice
+    while True:
+        song_num = int(input('\033[1m' + "Enter song number to search: " + '\033[0m'))
+        if 0 < song_num <= len(songs):
+            break
+        else:
+            print("Number must be between 1 and " + str(sort.length))
+    # Get song path from previous response
+    for song in response_json["response"]["songs"]:
+        if song["title"] == songs[song_num-1]:
+            song_api_path = song["api_path"]
+            break
+    lyrics = get_lyrics_from_song_api_path(base_url, web_url, headers, song_api_path)
+    print(lyrics)
+    exit()
+
 def main(argv):
     # API data
     base_url = "https://api.genius.com"
     headers = {'Authorization': 'Bearer ' + config.access_token}
     web_url = "https://genius.com"
-    sort = "popularity"
 
     #Search Parameters
     search_url = base_url + "/search"
     song_title = ""
     artist_name = ""
+    sort = Sort("popularity", 20)
 
     # Parse arguments
     if argv:
@@ -63,18 +93,16 @@ def main(argv):
     if not any([song_title, artist_name]):
         print("Must enter song or artist")
         exit()
-
     if not song_title:
         # Search for songs by artist
         params = {'q': artist_name}
-        search_for_artist(base_url, search_url, params, headers, sort)
-
+        search_for_artist(base_url, web_url, search_url, params, headers, sort)
     elif not artist_name:
         # Search for song name by all artists
         params = {'q': song_title}
         
     else:
-        # Send search request
+        # Search for song and artist
         params = {'q': song_title}
         response = requests.get(search_url, params=params, headers=headers)
         response_json = response.json()
