@@ -1,0 +1,2 @@
+# GeniusCLI
+GeniusCLI is a python script to display genius.com lyrics from the command line. No longer will you need to move your fingers from the keyboard and fiddle with the cumbersome mouse in order to find the lyrics for that song you just can't quite understand. Just think of all the time you'll save!
