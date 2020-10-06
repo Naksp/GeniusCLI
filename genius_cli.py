@@ -15,6 +15,7 @@ class Sort:
 
 def pprint(response):
     # Prints response in a more readable way
+    # Just used for testing
     pretty_json = json.loads(response.text)
     print(json.dumps(pretty_json, indent = 2))
 
@@ -46,7 +47,7 @@ def search_for_artist(base_url, web_url, search_url, params, headers, sort):
     artist_url = base_url + artist_path + "/songs?sort=" + sort.order
     response = requests.get(artist_url, headers=headers)
     response_json = response.json()
-
+    
     # Print songs according to sort
     print("Showing songs by " + artist_name + ":")
     songs = []
@@ -69,8 +70,8 @@ def search_for_artist(base_url, web_url, search_url, params, headers, sort):
     sys.exit(0)
 
 def search_for_song_title(base_url, web_url, search_url, params, headers, sort):
+    # Get list of matching songs and prompt user to choose one to display
     response = requests.get(search_url, params=params, headers=headers)
-    #pprint(response)
     response_json = response.json()
     songs = []
     paths = []
@@ -100,12 +101,12 @@ def choose_song_from_list(response_json, song_list, sort):
         try:
             song_num = int(input('\033[1m' + "Enter song number to search: " + '\033[0m'))
         except ValueError:
-            print("Input must be an integer between 1 and " + str(sort.length))
+            print("Input must be an integer between 1 and " + str(len(song_list)))
             continue
         if 0 < song_num <= len(song_list):
             return song_num
         else:
-            print("Number must be between 1 and " + str(sort.length))
+            print("Number must be between 1 and " + str(len(song_list)))
 
     # Get song path from previous response
     for song in response_json["response"]["songs"]:
