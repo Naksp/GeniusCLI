@@ -49,8 +49,9 @@ def get_song_object_from_song_api_path(base_url, web_url, headers, song_api_path
 def search_by_artist(base_url, web_url, search_url, headers, sort, artist_name):
     # Gets list of artists songs and prompts user to choose one do display
     artist_path = None
-    per_page = 20
     page_num = 1
+
+    # Parse search results page by page until matching artist is found
     print("\nSearching for artist", end='', flush=True)
     while not artist_path:
         print(".", end='', flush=True)
@@ -166,7 +167,12 @@ def choose_song_from_list(response_json, song_list, sort):
             return song_api_path
     return None
 
-def main(argv):
+def start_search_with_user_input():
+    song_title = input("Song Title: ")
+    artist_name = input("Artist Name: ")
+    init_search_params(song_title, artist_name)
+
+def init_search_params(song_title, artist_name):
     # API data
     base_url = "https://api.genius.com"
     headers = {'Authorization': 'Bearer ' + config.access_token}
@@ -174,27 +180,14 @@ def main(argv):
 
     #Search Parameters
     search_url = base_url + "/search"
-    song_title = ""
-    artist_name = ""
     sort = Sort("popularity", 20)
 
-    # Parse arguments
-    if argv:
-        parser = argparse.ArgumentParser()
-        parser.add_argument('-a')
-        parser.add_argument('-s')
-        args = parser.parse_args()
-        if args.s is not None:
-            song_title = args.s
-        if args.a is not None:
-            artist_name = args.a
-    else:
-        song_title = input("Song Title: ")
-        artist_name = input("Artist Name: ")
+    start_search(base_url, web_url, search_url, headers, sort, song_title, artist_name)
 
+def start_search(base_url, web_url, search_url, headers, sort, song_title, artist_name):
     if not any([song_title, artist_name]):
         print("Must enter song or artist")
-        sys.exit(0)
+        start_search_with_user_input()
 
     if not song_title:
         # Search for songs by artist
@@ -213,6 +206,22 @@ def main(argv):
             print_lyrics(song)
         else:
             print("Song not found.")
+
+def main(argv):
+    # Parse arguments
+    if argv:
+        parser = argparse.ArgumentParser()
+        parser.add_argument('-a')
+        parser.add_argument('-s')
+        args = parser.parse_args()
+        if args.s is not None:
+            song_title = args.s
+        if args.a is not None:
+            artist_name = args.a
+        init_search_params(song_title, artist_name)
+    else:
+        start_search_with_user_input()
+
 
 if __name__ == "__main__":
     try:
