@@ -13,29 +13,43 @@ class Sort:
     order: str
     length: int
 
+@dataclass
+class Song:
+    title: str
+    artist: str
+    lyrics: str
+
+def print_lyrics(song):
+    print('\n' + '\033[1m' + song.title + '\033[0m' + '\n' + song.artist)
+    print(song.lyrics)
+
 def pprint(response):
     # Prints response in a more readable way
     # Just used for testing
     pretty_json = json.loads(response.text)
     print(json.dumps(pretty_json, indent = 2))
 
-def get_lyrics_from_song_api_path(base_url, web_url, headers, song_api_path):
+def get_song_object_from_song_api_path(base_url, web_url, headers, song_api_path):
     # Accesses page of song_api_path and parses html for lyrics
     song_url = base_url + song_api_path
     response = requests.get(song_url, headers=headers)
-    r_json = response.json()
-    page_path = r_json["response"]["song"]["path"]
+    response_json = response.json()
+    song_title = response_json["response"]["song"]["title"]
+    artist_name = response_json["response"]["song"]["primary_artist"]["name"]
+    page_path = response_json["response"]["song"]["path"]
     page_url = web_url + page_path
     page = requests.get(page_url)
     # Parse html
     soup = BeautifulSoup(page.text, 'html.parser')
     soup = soup.find(class_="lyrics")
-    lyrics = soup.get_text()
-    return lyrics
+    song = Song(song_title, artist_name, soup.get_text())
+    # TODO make this return None on failure
+    return song
 
-def search_for_artist(base_url, web_url, search_url, params, headers, sort):
+def search_by_artist(base_url, web_url, search_url, headers, sort, artist_name):
     # Gets list of artists songs and prompts user to choose one do display
-    response = requests.get(search_url, params=params, headers=headers)
+    params = {'q': artist_name, "per_page": 20}
+    response = requests.get(search_url + "/", params=params, headers=headers)
     response_json = response.json()
     artist_path = None
     artist_path = response_json["response"]["hits"][0]["result"]["primary_artist"]["api_path"]
@@ -64,13 +78,15 @@ def search_for_artist(base_url, web_url, search_url, params, headers, sort):
             song_api_path = song["api_path"]
             break
 
-    lyrics = get_lyrics_from_song_api_path(base_url, web_url, headers, song_api_path)
-    # TODO move this to main
-    print(lyrics)
-    sys.exit(0)
+    song = get_song_object_from_song_api_path(base_url, web_url, headers, song_api_path)
+    if song:
+        return song
+    else:
+        return None
 
-def search_for_song_title(base_url, web_url, search_url, params, headers, sort):
+def search_by_song_title(base_url, web_url, search_url, headers, sort, song_title):
     # Get list of matching songs and prompt user to choose one to display
+    params = {'q': song_title}
     response = requests.get(search_url, params=params, headers=headers)
     response_json = response.json()
     songs = []
@@ -90,10 +106,34 @@ def search_for_song_title(base_url, web_url, search_url, params, headers, sort):
             song_api_path = hit["result"]["api_path"]
             break
 
-    lyrics = get_lyrics_from_song_api_path(base_url, web_url, headers, song_api_path)
-    # TODO move this to main
-    print(lyrics)
-    sys.exit(0)
+    song = get_song_object_from_song_api_path(base_url, web_url, headers, song_api_path)
+    if song:
+        return song
+    else:
+        return None
+
+def search_by_song_and_artist(base_url, search_url, web_url, headers, song_title, artist_name):
+    # Search for song and artist
+    params = {'q': song_title}
+    response = requests.get(search_url, params=params, headers=headers)
+    response_json = response.json()
+
+    # Parse search results for matching artist
+    song_info = None
+    for hit in response_json["response"]["hits"]:
+        artist = hit["result"]["primary_artist"]["name"]
+        if artist.lower() == artist_name.lower():
+            song_info = hit
+            break
+
+    # Parse for song api_path
+    if song_info:
+        api_path = song_info["result"]["api_path"]
+        song = get_song_object_from_song_api_path(base_url, web_url, headers, api_path)
+        return song
+    else:
+        return None
+
 
 def choose_song_from_list(response_json, song_list, sort):
     # Promt user for song choice and return path of desired song
@@ -144,34 +184,22 @@ def main(argv):
     if not any([song_title, artist_name]):
         print("Must enter song or artist")
         sys.exit(0)
+
     if not song_title:
         # Search for songs by artist
-        params = {'q': artist_name}
-        search_for_artist(base_url, web_url, search_url, params, headers, sort)
+        song = search_by_artist(base_url, web_url, search_url, headers, sort, artist_name)
+        print_lyrics(song)
+
     elif not artist_name:
         # Search for song name by all artists
-        params = {'q': song_title}
-        search_for_song_title(base_url, web_url, search_url, params, headers, sort)
+        song = search_by_song_title(base_url, web_url, search_url, headers, sort, song_title)
+        print_lyrics(song)
         
     else:
         # Search for song and artist
-        params = {'q': song_title}
-        response = requests.get(search_url, params=params, headers=headers)
-        response_json = response.json()
-
-        # Parse search results for matching artist
-        song_info = None
-        for hit in response_json["response"]["hits"]:
-            artist = hit["result"]["primary_artist"]["name"]
-            if artist.lower() == artist_name.lower():
-                song_info = hit
-                break
-
-        # Parse for song api_path
-        if song_info:
-            api_path = song_info["result"]["api_path"]
-            lyrics = get_lyrics_from_song_api_path(base_url, web_url, headers, api_path)
-            print(lyrics)
+        song = search_by_song_and_artist(base_url, search_url, web_url, headers, song_title, artist_name)
+        if song:
+            print_lyrics(song)
         else:
             print("Song not found.")
 
