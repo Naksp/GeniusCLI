@@ -19,9 +19,13 @@ class Song:
     artist: str
     lyrics: str
 
-def print_lyrics(song):
-    print('\n' + '\033[1m' + song.title + '\033[0m' + '\n' + song.artist + '\n')
-    print(song.lyrics.lstrip())
+def print_lyrics(song, out_file=None):
+    if out_file:
+        print('\n' + song.title + '\n' + song.artist + '\n', file=out_file)
+        print(song.lyrics.lstrip(), file=out_file)
+    else:
+        print('\n' + '\033[1m' + song.title + '\033[0m' + '\n' + song.artist + '\n')
+        print(song.lyrics.lstrip())
 
 def pprint(response):
     # Prints response in a more readable way
@@ -170,9 +174,9 @@ def choose_song_from_list(response_json, song_list, sort):
 def start_search_with_user_input():
     song_title = input("Song Title: ")
     artist_name = input("Artist Name: ")
-    init_search_params(song_title, artist_name)
+    init_search_params(song_title, artist_name, None) # No batch file
 
-def init_search_params(song_title, artist_name):
+def init_search_params(song_title, artist_name, batch_files):
     # API data
     base_url = "https://api.genius.com"
     headers = {'Authorization': 'Bearer ' + config.access_token}
@@ -182,9 +186,20 @@ def init_search_params(song_title, artist_name):
     search_url = base_url + "/search"
     sort = Sort("popularity", 20)
 
-    start_search(base_url, web_url, search_url, headers, sort, song_title, artist_name)
+    if batch_files:
+        # Read/write to file
+        print("Reading from " + batch_files[0] + "...")
+        with open(batch_files[0], 'r') as in_file, open(batch_files[1], 'w') as out_file:
+            for line in in_file:
+                if line:
+                    song_info = line.split(', ')
+                    song_title = song_info[0]
+                    artist_name = song_info[1].strip()
+                    start_search(base_url, web_url, search_url, headers, sort, song_title, artist_name, in_file, out_file)
+    else:
+        start_search(base_url, web_url, search_url, headers, sort, song_title, artist_name)
 
-def start_search(base_url, web_url, search_url, headers, sort, song_title, artist_name):
+def start_search(base_url, web_url, search_url, headers, sort, song_title, artist_name, in_file=None, out_file=None):
     if not any([song_title, artist_name]):
         print("Must enter song or artist")
         start_search_with_user_input()
@@ -192,20 +207,22 @@ def start_search(base_url, web_url, search_url, headers, sort, song_title, artis
     if not song_title:
         # Search for songs by artist
         song = search_by_artist(base_url, web_url, search_url, headers, sort, artist_name)
-        print_lyrics(song)
 
     elif not artist_name:
         # Search for song name by all artists
         song = search_by_song_title(base_url, web_url, search_url, headers, sort, song_title)
-        print_lyrics(song)
         
     else:
         # Search for song and artist
         song = search_by_song_and_artist(base_url, search_url, web_url, headers, song_title, artist_name)
-        if song:
-            print_lyrics(song)
+
+    if song:
+        if out_file:
+            print_lyrics(song, out_file)
         else:
-            print("Song not found.")
+            print_lyrics(song, False)
+    else:
+        print("No matching results found.")
 
 def main(argv):
     # Parse arguments
@@ -213,12 +230,13 @@ def main(argv):
         parser = argparse.ArgumentParser()
         parser.add_argument('-a')
         parser.add_argument('-s')
+        parser.add_argument('-b', nargs=2)
         args = parser.parse_args()
-        if args.s is not None:
-            song_title = args.s
-        if args.a is not None:
-            artist_name = args.a
-        init_search_params(song_title, artist_name)
+
+        song_title = args.s if args.s else None
+        artist_name = args.a if args.a else None
+        batch_files = args.b if args.b else None
+        init_search_params(song_title, artist_name, batch_files)
     else:
         start_search_with_user_input()
 
