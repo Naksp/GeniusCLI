@@ -130,17 +130,22 @@ def search_by_song_title(base_url, web_url, search_url, headers, sort, song_titl
 
 def search_by_song_and_artist(base_url, search_url, web_url, headers, song_title, artist_name):
     # Search for song and artist
-    params = {'q': song_title}
-    response = requests.get(search_url, params=params, headers=headers)
-    response_json = response.json()
-
-    # Parse search results for matching artist
     song_info = None
-    for hit in response_json["response"]["hits"]:
-        artist = hit["result"]["primary_artist"]["name"]
-        if artist.lower() == artist_name.lower():
-            song_info = hit
-            break
+    page = 1
+    while not song_info:
+        params = {'q': song_title, 'page': page}
+        response = requests.get(search_url, params=params, headers=headers)
+        response_json = response.json()
+        for hit in response_json["response"]["hits"]:
+            artist = hit["result"]["primary_artist"]["name"]
+            if artist.lower() == artist_name.lower():
+                song_info = hit
+                break
+        if page < 10:
+            page+=1
+        else:
+            print("Search is taking too long...Exiting")
+            return None
 
     # Parse for song api_path
     if song_info:
@@ -190,11 +195,13 @@ def init_search_params(song_title, artist_name, batch_files):
         # Read/write to file
         print("Reading from " + batch_files[0] + "...")
         with open(batch_files[0], 'r') as in_file, open(batch_files[1], 'w') as out_file:
+            print("Searching for:")
             for line in in_file:
                 if line:
-                    song_info = line.split(', ')
+                    song_info = line.split('--')
                     song_title = song_info[0]
                     artist_name = song_info[1].strip()
+                    print('\t' + song_title + " - " + artist_name)
                     start_search(base_url, web_url, search_url, headers, sort, song_title, artist_name, in_file, out_file)
     else:
         start_search(base_url, web_url, search_url, headers, sort, song_title, artist_name)
