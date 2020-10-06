@@ -20,8 +20,8 @@ class Song:
     lyrics: str
 
 def print_lyrics(song):
-    print('\n' + '\033[1m' + song.title + '\033[0m' + '\n' + song.artist)
-    print(song.lyrics)
+    print('\n' + '\033[1m' + song.title + '\033[0m' + '\n' + song.artist + '\n')
+    print(song.lyrics.lstrip())
 
 def pprint(response):
     # Prints response in a more readable way
@@ -48,15 +48,26 @@ def get_song_object_from_song_api_path(base_url, web_url, headers, song_api_path
 
 def search_by_artist(base_url, web_url, search_url, headers, sort, artist_name):
     # Gets list of artists songs and prompts user to choose one do display
-    params = {'q': artist_name, "per_page": 20}
-    response = requests.get(search_url + "/", params=params, headers=headers)
-    response_json = response.json()
     artist_path = None
-    artist_path = response_json["response"]["hits"][0]["result"]["primary_artist"]["api_path"]
+    per_page = 20
+    page_num = 1
+    print("\nSearching for artist", end='', flush=True)
+    while not artist_path:
+        print(".", end='', flush=True)
+        params = {'q': artist_name, "page": page_num}
+        response = requests.get(search_url + "/", params=params, headers=headers)
+        response_json = response.json()
+        for hit in response_json["response"]["hits"]:
+            if hit["result"]["primary_artist"]["name"].lower() == artist_name:
+                artist_path = hit["result"]["primary_artist"]["api_path"]
+                artist_name = hit["result"]["primary_artist"]["name"]
+                print('\n')
+                break
+        if not artist_path:
+            page_num += 1
     if not artist_path:
         print("Couldn't find artist.")
         sys.exit(0)
-    artist_name = response_json["response"]["hits"][0]["result"]["primary_artist"]["name"]
 
     artist_url = base_url + artist_path + "/songs?sort=" + sort.order
     response = requests.get(artist_url, headers=headers)
